@@ -7,15 +7,18 @@ from PyQt5.QtWidgets import (
     QStyle
 )
 from PyQt5.QtGui import QIcon
+import psycopg2
 import xlrd
-from pypinyin import Style, lazy_pinyin
-import re
+from coreutils import get_acronym, sanitize
+from colconf import ColConf
+from dbconnect import DBConnect
 
 class Xls2dbPage(QMainWindow):
     def __init__(self) -> None:
         super(Xls2dbPage, self).__init__()
         self.initUI()
         self.initActions()
+        self.dbDialog = DBConnect(self)
 
     def initUI(self):
         # Load the Qt ui (xml) file
@@ -30,6 +33,7 @@ class Xls2dbPage(QMainWindow):
     def initActions(self):
         self.fileBtn.clicked.connect(self.openExcel)
         self.fnameEdit.textChanged.connect(self.loadExcel)
+        self.okBtn.clicked.connect(self.addData)
 
     def openExcel(self):
         fname, _ = QFileDialog.getOpenFileName(
@@ -52,10 +56,86 @@ class Xls2dbPage(QMainWindow):
         if not os.path.exists(path):
             return
 
+        # Clear window
+        for i in reversed(range(self.colListLayout.count())): 
+            self.colListLayout.itemAt(i).widget().deleteLater()
 
-def get_acronym(raw):
-    return ''.join(lazy_pinyin(raw, style=Style.FIRST_LETTER))
+        # Add columns
+        wb = xlrd.open_workbook(path)
+        self.sheet = wb.sheet_by_index(0)
+        colName = []
+        for i in range(self.sheet.ncols):
+            # Get column name
+            original = self.sheet.cell_value(0, i)
+            acronym = sanitize(get_acronym(original))
+            # Get column data type
+            sample = self.sheet.cell_value(1, i)
+            if type(sample) == float:
+                datatype = "FLOAT"
+            elif type(sample) == int:
+                datatype = "INT"
+            else: # Assume string
+                datatype = "TEXT"
 
-def sanitize(raw):
-    # Only keey alphanumeric chars
-    return re.sub(r"[^a-zA-Z0-9]", "", raw)
+            # Initialize ColConf object
+            newConf = ColConf()
+            newConf.setValues(original, acronym, datatype)
+            self.colListLayout.addWidget(newConf)
+
+    def addData(self):
+        # Create a dict from the column configurations
+        colNameDict = {}
+        for conf in self.scrollArea.findChildren(ColConf):
+            if conf.selected():
+                colNameDict[conf.getColDescription()] = conf.getColName()
+
+        # Use a dialog to get login info
+        if self.dbDialog.exec_():
+            conn = self.dbDialog.connect()
+        else:
+            return
+        if conn is None: # TODO: Add a message box
+            print("Login failed")
+            return
+
+        # Create table
+        cur = conn.cursor()
+        table = sanitize(self.tableNameEdit.text())
+        try:
+            cur.execute(f"CREATE TABLE {table} (index serial);")
+        except psycopg2.errors.DuplicateTable as e:
+            print(e)
+            conn.rollback()
+            # TODO: Ask if the user wants to continue
+
+        # Add columns
+        dataTemplate = ','.join(len(colNameDict) * ["%s"])
+        colNames = []
+        for i in range(self.sheet.ncols):
+            # Get column name
+            col = self.sheet.cell_value(0, i)
+            if col in colNameDict: # Only add the selected columns
+                colName, colType = colNameDict[col]
+                colNames.append(colName)
+                try:
+                    cur.execute(f"ALTER TABLE {table} ADD {colName} {colType};")
+                except psycopg2.errors.DuplicateColumn as e:
+                    print(e)
+                    conn.rollback()
+                    # TODO: Ask user what to do with duplicate column
+
+        # Add data
+        for i in range(1, self.sheet.nrows):
+            dataArray = []
+            for j in range(self.sheet.ncols):
+                col = self.sheet.cell_value(0, j)
+                if col in colNameDict: # Only add the selected columns
+                    data = self.sheet.cell_value(i, j)
+                    dataArray.append(data)
+            cur.execute(
+                f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
+                dataArray)
+
+        conn.commit()
+        cur.close()
+        conn.close()
