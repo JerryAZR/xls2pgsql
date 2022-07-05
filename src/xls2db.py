@@ -1,7 +1,7 @@
 import os
 from PyQt5 import uic
 from PyQt5.QtWidgets import (
-    QMainWindow,
+    QWidget,
     QFileDialog,
     QApplication,
     QStyle
@@ -13,7 +13,7 @@ from coreutils import get_acronym, sanitize
 from colconf import ColConf
 from dbconnect import DBConnect
 
-class Xls2dbPage(QMainWindow):
+class Xls2dbPage(QWidget):
     def __init__(self) -> None:
         super(Xls2dbPage, self).__init__()
         self.initUI()
