@@ -89,23 +89,14 @@ class Xls2dbPage(QWidget):
             if conf.selected():
                 colNameDict[conf.getColDescription()] = conf.getColName()
 
-        # Use a dialog to get login info
-        if self.dbDialog.exec_():
-            conn = self.dbDialog.connect()
-        else:
-            return
-        if conn is None: # TODO: Add a message box
-            print("Login failed")
-            return
-
         # Create table
-        cur = conn.cursor()
+        cur = self.conn.cursor()
         table = sanitize(self.tableNameEdit.text())
         try:
             cur.execute(f"CREATE TABLE {table} (index serial);")
         except psycopg2.errors.DuplicateTable as e:
             print(e)
-            conn.rollback()
+            self.conn.rollback()
             # TODO: Ask if the user wants to continue
 
         # Add columns
@@ -121,7 +112,7 @@ class Xls2dbPage(QWidget):
                     cur.execute(f"ALTER TABLE {table} ADD {colName} {colType};")
                 except psycopg2.errors.DuplicateColumn as e:
                     print(e)
-                    conn.rollback()
+                    self.conn.rollback()
                     # TODO: Ask user what to do with duplicate column
 
         # Add data
@@ -136,6 +127,8 @@ class Xls2dbPage(QWidget):
                 f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
                 dataArray)
 
-        conn.commit()
+        self.conn.commit()
         cur.close()
-        conn.close()
+
+    def updateConn(self, conn):
+        self.conn = conn

@@ -1,13 +1,16 @@
 import os
 from PyQt5 import uic
-from PyQt5.QtWidgets import QDialog
+from PyQt5.QtWidgets import QWidget
 import xlrd
 import psycopg2
 
-class DBConnect(QDialog):
-    def __init__(self, parent) -> None:
-        super(DBConnect, self).__init__(parent)
+class DBConnect(QWidget):
+    def __init__(self, connHandler) -> None:
+        super(DBConnect, self).__init__()
         self.initUI()
+        self.connHandler = connHandler
+        self.initActions()
+        self.conn = None
 
     def initUI(self):
         # Load the Qt ui (xml) file
@@ -15,15 +18,26 @@ class DBConnect(QDialog):
         uiFile = "dblogin.ui"
         uic.loadUi(os.path.join(myPath, "ui", uiFile), self)
 
+    def initActions(self):
+        self.okBtn.clicked.connect(lambda: self.connHandler(self.connect()))
+
     def connect(self):
-        host = self.host.text()
-        db = self.db.text()
-        uname = self.uname.text()
-        pw = self.pw.text()
-        try:
-            conn = psycopg2.connect(dbname=db, user=uname, host=host, password=pw)
-            conn.set_client_encoding('UTF8')
-            return conn
-        except Exception as e:
-            print(e)
-            return None
+        if self.conn:
+            self.conn.close()
+            self.conn = None
+            self.okBtn.setText("Connect")
+        else:
+            host = self.host.text()
+            db = self.db.text()
+            uname = self.uname.text()
+            pw = self.pw.text()
+            port = self.port.text()
+            try:
+                self.conn = psycopg2.connect(dbname=db, user=uname, host=host, password=pw, port=port)
+                self.conn.set_client_encoding('UTF8')
+                self.okBtn.setText("Disconnect")
+            except Exception as e:
+                print(e)
+                self.conn = None
+                self.okBtn.setText("Connect")
+        return self.conn
