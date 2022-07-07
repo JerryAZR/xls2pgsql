@@ -19,6 +19,7 @@ class Xls2dbPage(QWidget):
         self.initUI()
         self.initActions()
         self.dbDialog = DBConnect(self)
+        self.conn = None
 
     def initUI(self):
         # Load the Qt ui (xml) file
@@ -83,6 +84,10 @@ class Xls2dbPage(QWidget):
             self.colListLayout.addWidget(newConf)
 
     def addData(self):
+        # Check connection
+        if self.conn is None:
+            #TODO: jump to connection page
+            return
         # Create a dict from the column configurations
         colNameDict = {}
         for conf in self.scrollArea.findChildren(ColConf):
