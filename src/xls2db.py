@@ -2,6 +2,7 @@ import os
 from PyQt5 import uic
 from PyQt5.QtWidgets import (
     QWidget,
+    QMessageBox,
     QFileDialog,
     QApplication,
     QStyle
@@ -102,7 +103,14 @@ class Xls2dbPage(QWidget):
         except psycopg2.errors.DuplicateTable as e:
             print(e)
             self.conn.rollback()
-            # TODO: Ask if the user wants to continue
+            # Table exists. Ask if the user wants to continue
+            response = QMessageBox.question(
+                None,
+                "Table exists",
+                f"Table \"{table}\" already exists. Continue?"
+            )
+            if response != QMessageBox.Yes:
+                return
 
         # Add columns
         dataTemplate = ','.join(len(colNameDict) * ["%s"])
@@ -132,6 +140,13 @@ class Xls2dbPage(QWidget):
                 f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
                 dataArray)
 
+        # Report result
+        num_records = self.sheet.nrows - 1
+        QMessageBox.information(
+            None,
+            "Done",
+            f"{num_records} record(s) have been added."
+        )
         self.conn.commit()
         cur.close()
 
