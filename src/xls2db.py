@@ -70,12 +70,19 @@ class Xls2dbPage(QWidget):
         # Add columns
         wb = xlrd.open_workbook(path)
         self.sheet = wb.sheet_by_index(0)
-        colName = []
+        defaults = []
         for i in range(self.sheet.ncols):
             # Get column name
-            # TODO: avoid duplicate default names
+            # Avoid duplicate default names
             original = self.sheet.cell_value(0, i)
             acronym = sanitize(get_acronym(original))
+            if acronym in defaults: # Add a number as suffix
+                for suffix in range(2,100): # that should be enough
+                    if f"{acronym}{suffix}" not in defaults:
+                        # Found a unique name
+                        acronym = f"{acronym}{suffix}"
+                        break
+            defaults.append(acronym)
             # Get column data type
             sample = self.sheet.cell_value(1, i)
             if type(sample) == float:
