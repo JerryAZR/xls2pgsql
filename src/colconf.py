@@ -31,7 +31,6 @@ class ColConf(QWidget):
     def initActions(self):
         self.checkBox.stateChanged.connect(self.toggleState)
 
-
     def setValues(self, description, name, datatype):
         self.description.setText(description)
         self.name.setText(name)
@@ -43,6 +42,9 @@ class ColConf(QWidget):
 
     def selected(self):
         return self.checkBox.isChecked()
+
+    def setSelected(self, state):
+        self.checkBox.setCheckState(state)
 
     def getColName(self):
         return (sanitize(self.name.text()), sanitize(self.dataType.currentText()))

@@ -86,6 +86,16 @@
            </property>
           </widget>
          </item>
+         <item>
+          <widget class="QCheckBox" name="checkAllBox">
+           <property name="text">
+            <string>全选</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
         </layout>
        </item>
        <item>
@@ -99,7 +109,7 @@
             <x>0</x>
             <y>0</y>
             <width>305</width>
-            <height>139</height>
+            <height>135</height>
            </rect>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_2">

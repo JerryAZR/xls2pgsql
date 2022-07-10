@@ -36,6 +36,11 @@ class Xls2dbPage(QWidget):
         self.fileBtn.clicked.connect(self.openExcel)
         self.fnameEdit.textChanged.connect(self.loadExcel)
         self.okBtn.clicked.connect(self.addData)
+        self.checkAllBox.stateChanged.connect(self.checkAll)
+
+    def checkAll(self, state):
+        for conf in self.scrollArea.findChildren(ColConf):
+            conf.setSelected(state)
 
     def openExcel(self):
         fname, _ = QFileDialog.getOpenFileName(
@@ -68,6 +73,7 @@ class Xls2dbPage(QWidget):
         colName = []
         for i in range(self.sheet.ncols):
             # Get column name
+            # TODO: avoid duplicate default names
             original = self.sheet.cell_value(0, i)
             acronym = sanitize(get_acronym(original))
             # Get column data type
