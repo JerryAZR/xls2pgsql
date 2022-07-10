@@ -13,6 +13,7 @@ class MainWindow(QMainWindow):
         self.initUI()
 
     def initUI(self):
+        self.setGeometry(0, 0, 800, 480) # default size
         self.tabWidget = QTabWidget()
         self.xls2db = Xls2dbPage()
         self.dbConn = DBConnect(self.xls2db.updateConn)
