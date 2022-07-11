@@ -142,6 +142,8 @@ class Xls2dbPage(QWidget):
                     # TODO: Ask user what to do with duplicate column
 
         # Add data
+        bufferSize = 16
+        buffer = []
         for i in range(1, self.sheet.nrows):
             dataArray = []
             for j in range(self.sheet.ncols):
@@ -149,9 +151,19 @@ class Xls2dbPage(QWidget):
                 if col in colNameDict: # Only add the selected columns
                     data = self.sheet.cell_value(i, j)
                     dataArray.append(data)
-            cur.execute(
+            # check if buffer is full
+            buffer.append(dataArray)
+            if len(buffer) >= bufferSize:
+                cur.executemany(
+                    f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
+                    buffer)
+                # Clear buffer
+                buffer = []
+        # Add remaining records
+        if buffer:
+            cur.executemany(
                 f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
-                dataArray)
+                buffer)
 
         # Report result
         num_records = self.sheet.nrows - 1
