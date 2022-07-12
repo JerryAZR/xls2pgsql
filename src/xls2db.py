@@ -3,17 +3,20 @@ from PyQt5 import uic
 from PyQt5.QtWidgets import (
     QWidget,
     QMessageBox,
+    QProgressDialog,
     QFileDialog,
     QApplication,
     QStyle
 )
 from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import Qt
 import psycopg2
 import pandas as pd
 import numpy as np
 from coreutils import get_acronym, sanitize
 from colconf import ColConf
 from dbconnect import DBConnect
+from time import sleep
 
 class Xls2dbPage(QWidget):
     def __init__(self) -> None:
@@ -137,9 +140,12 @@ class Xls2dbPage(QWidget):
                     cur.execute(f"ALTER TABLE {table} ADD {colName} {colType};")
 
         # Add data
+        pgDialog = QProgressDialog("Working...", "Abort", 0, self.sheet.shape[0])
+        pgDialog.setWindowModality(Qt.WindowModal)
+        pgDialog.setMinimumDuration(100) # pop up after 0.1 second
         bufferSize = 16
         buffer = []
-        total = 0 # re-calculate total to avoid errors
+        total = 0
         for _, row in self.sheet[colNameDict.keys()].iterrows():
             # check if buffer is full
             buffer.append(row.tolist())
@@ -147,15 +153,19 @@ class Xls2dbPage(QWidget):
                 cur.executemany(
                     f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
                     buffer)
-                # Clear buffer
+                # Update progress bar and clear buffer
                 total += len(buffer)
                 buffer = []
+                pgDialog.setValue(total)
+                if pgDialog.wasCanceled():
+                    break
         # Add remaining records
         if buffer:
             cur.executemany(
                 f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
                 buffer)
             total += len(buffer)
+            pgDialog.setValue(total)
 
         # Report result
         QMessageBox.information(
