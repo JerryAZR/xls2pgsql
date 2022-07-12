@@ -9,7 +9,8 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QIcon
 import psycopg2
-import xlrd
+import pandas as pd
+import numpy as np
 from coreutils import get_acronym, sanitize
 from colconf import ColConf
 from dbconnect import DBConnect
@@ -68,14 +69,12 @@ class Xls2dbPage(QWidget):
             self.colListLayout.itemAt(i).widget().deleteLater()
 
         # Add columns
-        wb = xlrd.open_workbook(path)
-        self.sheet = wb.sheet_by_index(0)
+        self.sheet = pd.read_excel(path)
         defaults = []
-        for i in range(self.sheet.ncols):
+        for key in self.sheet.dtypes.keys():
             # Get column name
             # Avoid duplicate default names
-            original = self.sheet.cell_value(0, i)
-            acronym = sanitize(get_acronym(original))
+            acronym = sanitize(get_acronym(key))
             if acronym in defaults: # Add a number as suffix
                 for suffix in range(2,100): # that should be enough
                     if f"{acronym}{suffix}" not in defaults:
@@ -84,17 +83,16 @@ class Xls2dbPage(QWidget):
                         break
             defaults.append(acronym)
             # Get column data type
-            sample = self.sheet.cell_value(1, i)
-            if type(sample) == float:
+            if self.sheet.dtypes[key] == np.float64:
                 datatype = "FLOAT"
-            elif type(sample) == int:
+            elif self.sheet.dtypes[key] == np.int64:
                 datatype = "INT"
             else: # Assume string
                 datatype = "TEXT"
 
             # Initialize ColConf object
             newConf = ColConf()
-            newConf.setValues(original, acronym, datatype)
+            newConf.setValues(key, acronym, datatype)
             self.colListLayout.addWidget(newConf)
 
     def addData(self):
@@ -111,9 +109,11 @@ class Xls2dbPage(QWidget):
         # Create table
         cur = self.conn.cursor()
         table = sanitize(self.tableNameEdit.text())
+        duplicateTable = False
         try:
             cur.execute(f"CREATE TABLE {table} (index serial);")
         except psycopg2.errors.DuplicateTable as e:
+            duplicateTable = True
             print(e)
             self.conn.rollback()
             # Table exists. Ask if the user wants to continue
@@ -128,49 +128,40 @@ class Xls2dbPage(QWidget):
         # Add columns
         dataTemplate = ','.join(len(colNameDict) * ["%s"])
         colNames = []
-        for i in range(self.sheet.ncols):
+        for col in self.sheet.columns.values:
             # Get column name
-            col = self.sheet.cell_value(0, i)
             if col in colNameDict: # Only add the selected columns
                 colName, colType = colNameDict[col]
                 colNames.append(colName)
-                try:
+                if not duplicateTable:
                     cur.execute(f"ALTER TABLE {table} ADD {colName} {colType};")
-                except psycopg2.errors.DuplicateColumn as e:
-                    print(e)
-                    self.conn.rollback()
-                    # TODO: Ask user what to do with duplicate column
 
         # Add data
         bufferSize = 16
         buffer = []
-        for i in range(1, self.sheet.nrows):
-            dataArray = []
-            for j in range(self.sheet.ncols):
-                col = self.sheet.cell_value(0, j)
-                if col in colNameDict: # Only add the selected columns
-                    data = self.sheet.cell_value(i, j)
-                    dataArray.append(data)
+        total = 0 # re-calculate total to avoid errors
+        for _, row in self.sheet[colNameDict.keys()].iterrows():
             # check if buffer is full
-            buffer.append(dataArray)
+            buffer.append(row.tolist())
             if len(buffer) >= bufferSize:
                 cur.executemany(
                     f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
                     buffer)
                 # Clear buffer
+                total += len(buffer)
                 buffer = []
         # Add remaining records
         if buffer:
             cur.executemany(
                 f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
                 buffer)
+            total += len(buffer)
 
         # Report result
-        num_records = self.sheet.nrows - 1
         QMessageBox.information(
             None,
             "Done",
-            f"{num_records} record(s) have been added."
+            f"{total} record(s) have been added."
         )
         self.conn.commit()
         cur.close()

@@ -3,6 +3,8 @@
 ## Dependencies
 
 * psycopg2
-* xlrd==1.2.0
+* xlrd
+* openpyxl
+* pandas
 * pypinyin
 * pyqt5
