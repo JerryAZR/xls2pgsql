@@ -9,23 +9,27 @@ from PyQt5.QtWidgets import (
     QStyle
 )
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 import psycopg2
 import pandas as pd
 import numpy as np
 import traceback
+from threading import Thread
 from coreutils import get_acronym, sanitize
 from colconf import ColConf
 from dbconnect import DBConnect
 from time import sleep # Test only
 
 class Xls2dbPage(QWidget):
+    addDataDone = pyqtSignal(int)
+    updateProgress = pyqtSignal(int)
     def __init__(self) -> None:
         super(Xls2dbPage, self).__init__()
         self.initUI()
         self.initActions()
         self.dbDialog = DBConnect(self)
         self.conn = None
+        self.err = "" # Placeholder for exceptions on non-UI thread
 
     def initUI(self):
         # Load the Qt ui (xml) file
@@ -42,6 +46,8 @@ class Xls2dbPage(QWidget):
         self.fnameEdit.textChanged.connect(self.loadExcel)
         self.okBtn.clicked.connect(self.addData)
         self.checkAllBox.stateChanged.connect(self.checkAll)
+        self.addDataDone.connect(self.postAdd)
+        self.updateProgress.connect(self.progressBar.setValue)
 
     def checkAll(self, state):
         for conf in self.scrollArea.findChildren(ColConf):
@@ -111,11 +117,11 @@ class Xls2dbPage(QWidget):
                 colNameDict[conf.getColDescription()] = conf.getColName()
 
         # Create table
-        cur = self.conn.cursor()
+        self.cur = self.conn.cursor()
         table = sanitize(self.tableNameEdit.text())
         duplicateTable = False
         try:
-            cur.execute(f"CREATE TABLE {table} (index serial);")
+            self.cur.execute(f"CREATE TABLE {table} (index serial);")
         except psycopg2.errors.DuplicateTable:
             duplicateTable = True
             self.conn.rollback()
@@ -140,47 +146,60 @@ class Xls2dbPage(QWidget):
                 colName, colType = colNameDict[col]
                 colNames.append(colName)
                 if not duplicateTable:
-                    cur.execute(f"ALTER TABLE {table} ADD {colName} {colType};")
+                    self.cur.execute(f"ALTER TABLE {table} ADD {colName} {colType};")
 
-        # Add data
+        # Initialize progress bar
         self.progressBar.setMaximum(self.sheet.shape[0])
         self.progressBar.setValue(0)
+        # Start thread
+        worker = Thread(target=self.addDataWorker,
+            args=(colNameDict, table, colNames, dataTemplate))
+        worker.start()
+
+    # This function should run in a non-UI thread
+    def addDataWorker(self, colNameDict, table, colNames, dataTemplate):
+        # Add data
         bufferSize = 16
         buffer = []
         total = 0
-        for _, row in self.sheet[colNameDict.keys()].iterrows():
-            # check if buffer is full
-            buffer.append(row.tolist())
-            if len(buffer) >= bufferSize:
-                try:
-                    cur.executemany(
+        try:
+            for _, row in self.sheet[colNameDict.keys()].iterrows():
+                # check if buffer is full
+                buffer.append(row.tolist())
+                if len(buffer) >= bufferSize:
+                    self.cur.executemany(
                         f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
                         buffer)
-                except:
-                    QMessageBox.critical(self, "SQL Error", traceback.format_exc())
-                    self.conn.rollback()
-                    self.okBtn.setEnabled(True)
-                    return
-                # Update progress bar and clear buffer
+                    # Update progress bar and clear buffer
+                    total += len(buffer)
+                    buffer = []
+                    self.updateProgress.emit(total)
+            # Add remaining records
+            if buffer:
+                self.cur.executemany(
+                    f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
+                    buffer)
                 total += len(buffer)
-                buffer = []
-                self.progressBar.setValue(total)
-        # Add remaining records
-        if buffer:
-            cur.executemany(
-                f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
-                buffer)
-            total += len(buffer)
-            self.progressBar.setValue(total)
+                self.updateProgress.emit(total)
+            self.addDataDone.emit(total)
+        except:
+            self.conn.rollback()
+            self.err = traceback.format_exc()
+            self.addDataDone.emit(-1)
 
-        # Report result
-        QMessageBox.information(
-            None,
-            "Done",
-            f"{total} record(s) have been added."
-        )
-        self.conn.commit()
-        cur.close()
+    def postAdd(self, returnCode):
+        if returnCode < 0:
+            QMessageBox.critical(self, "SQL Error", self.err)
+        else:
+            # Report result
+            QMessageBox.information(
+                None,
+                "Done",
+                f"{returnCode} record(s) have been added."
+            )
+            self.conn.commit()
+        # Clean up
+        self.cur.close()
         # Re-enable Ok button
         self.okBtn.setEnabled(True)
 
