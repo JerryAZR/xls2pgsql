@@ -13,10 +13,11 @@ from PyQt5.QtCore import Qt
 import psycopg2
 import pandas as pd
 import numpy as np
+import traceback
 from coreutils import get_acronym, sanitize
 from colconf import ColConf
 from dbconnect import DBConnect
-from time import sleep
+from time import sleep # Test only
 
 class Xls2dbPage(QWidget):
     def __init__(self) -> None:
@@ -115,9 +116,8 @@ class Xls2dbPage(QWidget):
         duplicateTable = False
         try:
             cur.execute(f"CREATE TABLE {table} (index serial);")
-        except psycopg2.errors.DuplicateTable as e:
+        except psycopg2.errors.DuplicateTable:
             duplicateTable = True
-            print(e)
             self.conn.rollback()
             # Table exists. Ask if the user wants to continue
             response = QMessageBox.question(
@@ -127,6 +127,9 @@ class Xls2dbPage(QWidget):
             )
             if response != QMessageBox.Yes:
                 return
+
+        # Disable OK button
+        self.okBtn.setEnabled(False)
 
         # Add columns
         dataTemplate = ','.join(len(colNameDict) * ["%s"])
@@ -140,9 +143,8 @@ class Xls2dbPage(QWidget):
                     cur.execute(f"ALTER TABLE {table} ADD {colName} {colType};")
 
         # Add data
-        pgDialog = QProgressDialog("Working...", "Abort", 0, self.sheet.shape[0])
-        pgDialog.setWindowModality(Qt.WindowModal)
-        pgDialog.setMinimumDuration(100) # pop up after 0.1 second
+        self.progressBar.setMaximum(self.sheet.shape[0])
+        self.progressBar.setValue(0)
         bufferSize = 16
         buffer = []
         total = 0
@@ -150,22 +152,26 @@ class Xls2dbPage(QWidget):
             # check if buffer is full
             buffer.append(row.tolist())
             if len(buffer) >= bufferSize:
-                cur.executemany(
-                    f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
-                    buffer)
+                try:
+                    cur.executemany(
+                        f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
+                        buffer)
+                except:
+                    QMessageBox.critical(self, "SQL Error", traceback.format_exc())
+                    self.conn.rollback()
+                    self.okBtn.setEnabled(True)
+                    return
                 # Update progress bar and clear buffer
                 total += len(buffer)
                 buffer = []
-                pgDialog.setValue(total)
-                if pgDialog.wasCanceled():
-                    break
+                self.progressBar.setValue(total)
         # Add remaining records
         if buffer:
             cur.executemany(
                 f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
                 buffer)
             total += len(buffer)
-            pgDialog.setValue(total)
+            self.progressBar.setValue(total)
 
         # Report result
         QMessageBox.information(
@@ -175,6 +181,8 @@ class Xls2dbPage(QWidget):
         )
         self.conn.commit()
         cur.close()
+        # Re-enable Ok button
+        self.okBtn.setEnabled(True)
 
     def updateConn(self, conn):
         self.conn = conn
