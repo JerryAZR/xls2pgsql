@@ -79,8 +79,16 @@ class Xls2dbPage(QWidget):
             self.colListLayout.itemAt(i).widget().deleteLater()
 
         # Add columns
-        self.sheet = pd.read_excel(path)
+        if path.endswith("xls"):
+            self.sheet = pd.read_excel(path, engine="xlrd")
+        elif path.endswith("xlsx"):
+            self.sheet = pd.read_excel(path, engine="openpyxl")
+        elif path.endswith("csv"): # TODO
+            pass
+        else:
+            return
         defaults = []
+        colIdx = 0
         for key in self.sheet.dtypes.keys():
             # Get column name
             # Avoid duplicate default names
@@ -94,15 +102,16 @@ class Xls2dbPage(QWidget):
             defaults.append(acronym)
             # Get column data type
             if self.sheet.dtypes[key] == np.float64:
-                datatype = "FLOAT"
+                datatype = "NUMBER(16,2)"
             elif self.sheet.dtypes[key] == np.int64:
-                datatype = "INT"
+                datatype = "INTEGER"
             else: # Assume string
-                datatype = "TEXT"
+                datatype = "VARCHAR(200)"
 
             # Initialize ColConf object
             newConf = ColConf()
-            newConf.setValues(key, acronym, datatype)
+            colIdx += 1
+            newConf.setValues(key, acronym, datatype, colIdx)
             self.colListLayout.addWidget(newConf)
 
     def addData(self):

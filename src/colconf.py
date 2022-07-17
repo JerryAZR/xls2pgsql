@@ -2,7 +2,6 @@ import os
 from PyQt5 import uic
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QPalette, QColor
-import xlrd
 from coreutils import sanitize
 
 class ColConf(QWidget):
@@ -24,26 +23,29 @@ class ColConf(QWidget):
 
         palette = QPalette()
         palette.setColor(QPalette.Window, ColConf.COLORS[ColConf.ID])
-        self.setAutoFillBackground(True); 
+        self.setAutoFillBackground(True)
         self.setPalette(palette)
         ColConf.ID = (ColConf.ID + 1) & 1
 
     def initActions(self):
         self.checkBox.stateChanged.connect(self.toggleState)
 
-    def setValues(self, description, name, datatype):
+    def setValues(self, description, name, datatype, idx):
         self.description.setText(description)
         self.name.setText(name)
         self.dataType.setCurrentText(datatype)
+        self.idxLabel.setText(str(idx))
 
     def toggleState(self, state):
         self.name.setEnabled(state)
         self.dataType.setEnabled(state)
+        self.description.setEnabled(state)
+        self.idxLabel.setEnabled(state)
 
-    def selected(self):
+    def selected(self) -> bool:
         return self.checkBox.isChecked()
 
-    def setSelected(self, state):
+    def setSelected(self, state: bool) -> None:
         self.checkBox.setCheckState(state)
 
     def getColName(self):

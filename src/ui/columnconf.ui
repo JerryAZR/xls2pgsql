@@ -6,9 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>347</width>
-    <height>48</height>
+    <width>452</width>
+    <height>34</height>
    </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>128</width>
+    <height>0</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>Form</string>
@@ -30,7 +36,32 @@
     <number>4</number>
    </property>
    <item>
+    <widget class="QLabel" name="idxLabel">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>20</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="text">
+      <string>TextLabel</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="QLabel" name="description">
+     <property name="minimumSize">
+      <size>
+       <width>128</width>
+       <height>0</height>
+      </size>
+     </property>
      <property name="text">
       <string>TextLabel</string>
      </property>
@@ -41,17 +72,33 @@
    </item>
    <item>
     <widget class="QComboBox" name="dataType">
+     <property name="minimumSize">
+      <size>
+       <width>128</width>
+       <height>0</height>
+      </size>
+     </property>
      <property name="editable">
       <bool>true</bool>
      </property>
      <item>
       <property name="text">
-       <string>INT</string>
+       <string>INTEGER</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>FLOAT</string>
+       <string>NUMBER(16,2)</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>CHAR(20)</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>VARCHAR(200)</string>
       </property>
      </item>
      <item>
