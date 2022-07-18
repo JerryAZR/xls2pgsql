@@ -8,3 +8,4 @@
 * pandas
 * pypinyin
 * pyqt5
+* pyqt-resource-helper

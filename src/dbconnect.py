@@ -5,6 +5,9 @@ import xlrd
 import psycopg2
 import json
 import traceback
+import sys
+sys.path.insert(0, "./pyqt-toast")
+from pyqt_toast import Toast
 
 class DBConnect(QWidget):
     def __init__(self, connHandler) -> None:
@@ -22,6 +25,7 @@ class DBConnect(QWidget):
         myPath = os.path.dirname(__file__)
         uiFile = "dblogin.ui"
         uic.loadUi(os.path.join(myPath, "ui", uiFile), self)
+        self.toast = Toast(text="Connected", duration=2, parent=self)
 
     def initActions(self):
         self.okBtn.clicked.connect(lambda: self.connHandler(self.connect()))
@@ -43,6 +47,7 @@ class DBConnect(QWidget):
                 self.conn = psycopg2.connect(dbname=db, user=uname, host=host, password=pw, port=port)
                 self.conn.set_client_encoding('UTF8')
                 self.okBtn.setText("Disconnect")
+                self.toast.show()
             except Exception as e:
                 QMessageBox.warning(self, "Failed to Connect", str(e))
                 self.conn = None
