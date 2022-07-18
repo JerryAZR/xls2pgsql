@@ -1,13 +1,11 @@
 import os
 from PyQt5 import uic
 from PyQt5.QtWidgets import QWidget, QMessageBox
+from PyQt5.QtGui import QIcon
 import xlrd
 import psycopg2
 import json
 import traceback
-import sys
-sys.path.insert(0, "./pyqt-toast")
-from pyqt_toast import Toast
 
 class DBConnect(QWidget):
     def __init__(self, connHandler) -> None:
@@ -25,7 +23,15 @@ class DBConnect(QWidget):
         myPath = os.path.dirname(__file__)
         uiFile = "dblogin.ui"
         uic.loadUi(os.path.join(myPath, "ui", uiFile), self)
-        self.toast = Toast(text="Connected", duration=2, parent=self)
+        # Load greed circle
+        GreenIconFile = "green.svg"
+        GreenIconPath = os.path.join(myPath, "ui", GreenIconFile)
+        self.greenIcon = QIcon(GreenIconPath).pixmap(20, 20)
+        # Load red circle
+        RedIconFile = "red.svg"
+        RedIconPath = os.path.join(myPath, "ui", RedIconFile)
+        self.redIcon = QIcon(RedIconPath).pixmap(20, 20)
+        self.indicator.setPixmap(self.redIcon)
 
     def initActions(self):
         self.okBtn.clicked.connect(lambda: self.connHandler(self.connect()))
@@ -37,6 +43,9 @@ class DBConnect(QWidget):
             self.conn.close()
             self.conn = None
             self.okBtn.setText("Connect")
+            # Update indicator and status label
+            self.indicator.setPixmap(self.redIcon)
+            self.statusLabel.setText("Not connected.")
         else:
             host = self.host.text()
             db = self.db.text()
@@ -47,7 +56,9 @@ class DBConnect(QWidget):
                 self.conn = psycopg2.connect(dbname=db, user=uname, host=host, password=pw, port=port)
                 self.conn.set_client_encoding('UTF8')
                 self.okBtn.setText("Disconnect")
-                self.toast.show()
+                # Update indicator and status label
+                self.indicator.setPixmap(self.greenIcon)
+                self.statusLabel.setText(f"Connected to DB \"{db}\" at {host}")
             except Exception as e:
                 QMessageBox.warning(self, "Failed to Connect", str(e))
                 self.conn = None
