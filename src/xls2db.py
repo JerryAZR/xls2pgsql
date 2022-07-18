@@ -23,6 +23,7 @@ from time import sleep # Test only
 class Xls2dbPage(QWidget):
     addDataDone = pyqtSignal(int)
     updateProgress = pyqtSignal(int)
+    connectDB = pyqtSignal()
     def __init__(self) -> None:
         super(Xls2dbPage, self).__init__()
         self.initUI()
@@ -90,6 +91,13 @@ class Xls2dbPage(QWidget):
         defaults = []
         colIdx = 0
         for key in self.sheet.dtypes.keys():
+            # Get column data type
+            if self.sheet.dtypes[key] == np.float64:
+                datatype = "NUMBER(16,2)"
+            elif self.sheet.dtypes[key] == np.int64:
+                datatype = "INTEGER"
+            else: # Assume string
+                datatype = "VARCHAR(200)"
             # Get column name
             # Avoid duplicate default names
             acronym = sanitize(get_acronym(key))
@@ -99,14 +107,9 @@ class Xls2dbPage(QWidget):
                         # Found a unique name
                         acronym = f"{acronym}{suffix}"
                         break
+                # Set text color
+                key = f"<font color='red'>{key}</font>"
             defaults.append(acronym)
-            # Get column data type
-            if self.sheet.dtypes[key] == np.float64:
-                datatype = "NUMBER(16,2)"
-            elif self.sheet.dtypes[key] == np.int64:
-                datatype = "INTEGER"
-            else: # Assume string
-                datatype = "VARCHAR(200)"
 
             # Initialize ColConf object
             newConf = ColConf()
@@ -117,7 +120,8 @@ class Xls2dbPage(QWidget):
     def addData(self):
         # Check connection
         if self.conn is None:
-            #TODO: jump to connection page
+            # Jump to connection page
+            self.connectDB.emit()
             return
         # Create a dict from the column configurations
         colNameDict = {}
@@ -143,23 +147,27 @@ class Xls2dbPage(QWidget):
             if response != QMessageBox.Yes:
                 return
 
-        # Disable OK button
-        self.okBtn.setEnabled(False)
-
         # Add columns
         dataTemplate = ','.join(len(colNameDict) * ["%s"])
         colNames = []
-        for col in self.sheet.columns.values:
-            # Get column name
-            if col in colNameDict: # Only add the selected columns
-                colName, colType = colNameDict[col]
-                colNames.append(colName)
-                if not duplicateTable:
-                    self.cur.execute(f"ALTER TABLE {table} ADD {colName} {colType};")
+        try:
+            for col in self.sheet.columns.values:
+                # Get column name
+                if col in colNameDict: # Only add the selected columns
+                    colName, colType = colNameDict[col]
+                    colNames.append(colName)
+                    if not duplicateTable:
+                        self.cur.execute(f"ALTER TABLE {table} ADD {colName} {colType};")
+        except:
+            self.conn.rollback()
+            QMessageBox.critical(self, "SQL Error", traceback.format_exc())
+            return
 
         # Initialize progress bar
         self.progressBar.setMaximum(self.sheet.shape[0])
         self.progressBar.setValue(0)
+        # Disable OK button
+        self.okBtn.setEnabled(False)
         # Start thread
         worker = Thread(target=self.addDataWorker,
             args=(colNameDict, table, colNames, dataTemplate))
@@ -168,31 +176,40 @@ class Xls2dbPage(QWidget):
     # This function should run in a non-UI thread
     def addDataWorker(self, colNameDict, table, colNames, dataTemplate):
         # Add data
-        bufferSize = 16
+        bufferSize = 1024
         buffer = []
         total = 0
         try:
             for _, row in self.sheet[colNameDict.keys()].iterrows():
+                # Construct components (records) of the SQL query using mogrify
+                # and add them to a buffer
+                # buffer = [(valA1, valA2, ...), (valB1, valB2, ...), ...]
+                # It is possible to do this by hand, but mogrify handles
+                # missing cell values better
+                buffer.append(self.cur.mogrify(f"({dataTemplate})", row.tolist()).decode("utf-8"))
                 # check if buffer is full
-                buffer.append(row.tolist())
                 if len(buffer) >= bufferSize:
-                    self.cur.executemany(
-                        f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
-                        buffer)
+                    # Execute:
+                    #   INSERT INTO table_name (col1, col2, ...)
+                    #   VALUES (valA1, valA2, ...), (valB1, valB2, ...), ...
+                    # The function "executemany" is functionally correct,
+                    # but much slower than a single long SQL command
+                    self.cur.execute(f"INSERT INTO {table} ({','.join(colNames)}) VALUES {','.join(buffer)};")
                     # Update progress bar and clear buffer
                     total += len(buffer)
                     buffer = []
                     self.updateProgress.emit(total)
             # Add remaining records
             if buffer:
-                self.cur.executemany(
-                    f"INSERT INTO {table} ({','.join(colNames)}) VALUES ({dataTemplate})",
-                    buffer)
+                self.cur.execute(f"INSERT INTO {table} ({','.join(colNames)}) VALUES {','.join(buffer)};")
                 total += len(buffer)
                 self.updateProgress.emit(total)
             self.addDataDone.emit(total)
         except:
             self.conn.rollback()
+            # QMessageBox cannot be displayed in a non-UI thread,
+            # so we save the error message here and display it in a message box
+            # after execution returns to the UI thread
             self.err = traceback.format_exc()
             self.addDataDone.emit(-1)
 

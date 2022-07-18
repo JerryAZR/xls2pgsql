@@ -11,6 +11,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super(MainWindow, self).__init__()
         self.initUI()
+        self.initActions()
 
     def initUI(self):
         self.setGeometry(0, 0, 800, 480) # default size
@@ -20,3 +21,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.tabWidget)
         self.tabWidget.addTab(self.dbConn, "DB Connect")
         self.tabWidget.addTab(self.xls2db, "XLS2DB")
+
+    def initActions(self):
+        self.xls2db.connectDB.connect(
+            lambda: self.tabWidget.setCurrentWidget(self.dbConn)
+        )

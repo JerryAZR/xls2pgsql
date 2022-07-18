@@ -2,7 +2,7 @@ import os
 from PyQt5 import uic
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QPalette, QColor
-from coreutils import sanitize
+from coreutils import sanitize, stripHTML
 
 class ColConf(QWidget):
     ID = 0
@@ -52,4 +52,4 @@ class ColConf(QWidget):
         return (sanitize(self.name.text()), sanitize(self.dataType.currentText()))
 
     def getColDescription(self):
-        return self.description.text()
+        return stripHTML(self.description.text())
