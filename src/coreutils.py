@@ -6,8 +6,11 @@ def get_acronym(raw):
 
 def sanitize(raw):
     # Only keep "safe" chars
-    return re.sub(r"[^a-zA-Z0-9()_.,]", "", raw)
-    # TODO: Move leading digits to the back
+    step1 = re.sub(r"[^a-zA-Z0-9()_.,]", "", raw)
+    # Move leading digits to the end
+    match = re.search(r'(\d*)(.*)', step1)
+    step2 = match[2] + match[1]
+    return step2
 
 def stripHTML(html):
     return re.sub(r"<.*?>", "", html)

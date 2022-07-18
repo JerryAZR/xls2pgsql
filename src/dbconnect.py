@@ -45,7 +45,6 @@ class DBConnect(QWidget):
             self.okBtn.setText("Connect")
             # Update indicator and status label
             self.indicator.setPixmap(self.redIcon)
-            self.statusLabel.setText("Not connected.")
         else:
             host = self.host.text()
             db = self.db.text()
@@ -58,7 +57,6 @@ class DBConnect(QWidget):
                 self.okBtn.setText("Disconnect")
                 # Update indicator and status label
                 self.indicator.setPixmap(self.greenIcon)
-                self.statusLabel.setText(f"Connected to DB \"{db}\" at {host}")
             except Exception as e:
                 QMessageBox.warning(self, "Failed to Connect", str(e))
                 self.conn = None
@@ -85,7 +83,15 @@ class DBConnect(QWidget):
         # Auto generate name if none provided
         if name == "":
             name = f"{uname}@{host}:{port}"
-        # TODO: warn user on overwrite
+        # Warn user on overwrite
+        if name in self.history:
+            response = QMessageBox.question(
+                None,
+                "Profile exists",
+                f"Profile \"{name}\" already exists. Overwrite?"
+            )
+            if response != QMessageBox.Yes:
+                return
         self.history[name] = jentry
         with open(self.jsonfile, "w") as out_file:
             json.dump(self.history, out_file, indent=4)

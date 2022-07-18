@@ -18,6 +18,7 @@ from threading import Thread
 from coreutils import get_acronym, sanitize
 from colconf import ColConf
 from dbconnect import DBConnect
+from tablearea import TableArea
 from time import sleep # Test only
 
 class Xls2dbPage(QWidget):
@@ -26,10 +27,12 @@ class Xls2dbPage(QWidget):
     connectDB = pyqtSignal()
     def __init__(self) -> None:
         super(Xls2dbPage, self).__init__()
+        self.tableArea = TableArea(self)
         self.initUI()
         self.initActions()
         self.dbDialog = DBConnect(self)
         self.conn = None
+        self.sheet = None
         self.err = "" # Placeholder for exceptions on non-UI thread
 
     def initUI(self):
@@ -39,11 +42,17 @@ class Xls2dbPage(QWidget):
         uic.loadUi(os.path.join(myPath, "ui", uiFile), self)
         # Set icon
         self.fileBtn.setIcon(QIcon(
-            QApplication.style().standardIcon(QStyle.SP_DialogOpenButton))
-        )
+            QApplication.style().standardIcon(QStyle.SP_DialogOpenButton)
+        ))
+        self.previewBtn.setIcon(QIcon(
+            QApplication.style().standardIcon(QStyle.SP_FileDialogContentsView)
+        ))
+        self.verticalLayout.addWidget(self.tableArea)
+        self.tableArea.hide()
 
     def initActions(self):
         self.fileBtn.clicked.connect(self.openExcel)
+        self.previewBtn.clicked.connect(self.showExcel)
         self.fnameEdit.textChanged.connect(self.loadExcel)
         self.okBtn.clicked.connect(self.addData)
         self.checkAllBox.stateChanged.connect(self.checkAll)
@@ -73,6 +82,7 @@ class Xls2dbPage(QWidget):
 
         # Return if file does not exist
         if not os.path.exists(path):
+            self.sheet = None
             return
 
         # Clear window
@@ -84,9 +94,10 @@ class Xls2dbPage(QWidget):
             self.sheet = pd.read_excel(path, engine="xlrd")
         elif path.endswith("xlsx"):
             self.sheet = pd.read_excel(path, engine="openpyxl")
-        elif path.endswith("csv"): # TODO
-            pass
+        elif path.endswith("csv"):
+            self.sheet = pd.read_csv(path)
         else:
+            self.sheet = None
             return
         defaults = []
         colIdx = 0
@@ -116,6 +127,13 @@ class Xls2dbPage(QWidget):
             colIdx += 1
             newConf.setValues(key, acronym, datatype, colIdx)
             self.colListLayout.addWidget(newConf)
+
+    def showExcel(self):
+        if self.sheet is None:
+            QMessageBox.warning(self, "Path error", "Invalid file path.")
+            return
+        self.tableArea.setTable(self.sheet)
+        self.tableArea.show()
 
     def addData(self):
         # Check connection
