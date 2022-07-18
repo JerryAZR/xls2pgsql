@@ -1,6 +1,6 @@
 import os
 from PyQt5 import uic
-from PyQt5.QtWidgets import QWidget
+from PyQt5.QtWidgets import QWidget, QMessageBox
 import xlrd
 import psycopg2
 import json
@@ -44,7 +44,7 @@ class DBConnect(QWidget):
                 self.conn.set_client_encoding('UTF8')
                 self.okBtn.setText("Disconnect")
             except Exception as e:
-                print(e)
+                QMessageBox.warning(self, "Failed to Connect", str(e))
                 self.conn = None
                 self.okBtn.setText("Connect")
         return self.conn
