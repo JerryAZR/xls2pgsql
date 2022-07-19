@@ -1,6 +1,7 @@
 import os
 from PyQt5 import uic
-from PyQt5.QtWidgets import QWidget, QTableWidgetItem
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QWidget, QTableWidgetItem, QApplication, QStyle
 from PyQt5.QtCore import QTimer
 
 class TableArea(QWidget):
@@ -9,6 +10,7 @@ class TableArea(QWidget):
         self.pageIdx = 0
         self.pageSize = 10
         self.initUI()
+        self.initActions()
 
     def initUI(self):
         # Load the Qt ui (xml) file
@@ -16,6 +18,14 @@ class TableArea(QWidget):
         uiFile = "tablearea.ui"
         uic.loadUi(os.path.join(myPath, "ui", uiFile), self)
         self.tableWidget.setRowCount(self.pageSize)
+        self.closeBtn.setIcon(QIcon(
+            QApplication.style().standardIcon(QStyle.SP_DialogCloseButton)
+        ))
+        # Other close icons available at
+        # https://www.pythonguis.com/faq/built-in-qicons-pyqt/
+
+    def initActions(self):
+        self.closeBtn.clicked.connect(self.hide)
 
     def setTable(self, table):
         self.tableWidget.setColumnCount(table.shape[1])
