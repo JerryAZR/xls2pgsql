@@ -11,8 +11,8 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QIcon, QIntValidator
 from PyQt5.QtCore import Qt, pyqtSignal
 import psycopg2
-import pandas as pd
-import numpy as np
+from pandas import read_excel, read_csv
+from numpy import float64, int64
 import traceback
 from threading import Thread
 from coreutils import get_acronym, sanitize
@@ -97,11 +97,11 @@ class Xls2dbPage(QWidget):
         # Add columns
         try:
             if path.endswith("xls"):
-                self.sheet = pd.read_excel(path, engine="xlrd", skiprows=skip)
+                self.sheet = read_excel(path, engine="xlrd", skiprows=skip)
             elif path.endswith("xlsx"):
-                self.sheet = pd.read_excel(path, engine="openpyxl", skiprows=skip)
+                self.sheet = read_excel(path, engine="openpyxl", skiprows=skip)
             elif path.endswith("csv"):
-                self.sheet = pd.read_csv(path, engine="python", skiprows=skip)
+                self.sheet = read_csv(path, engine="python", skiprows=skip)
             else:
                 self.sheet = None
                 return
@@ -115,9 +115,9 @@ class Xls2dbPage(QWidget):
         colIdx = 0
         for key in self.sheet.dtypes.keys():
             # Get column data type
-            if self.sheet.dtypes[key] == np.float64:
+            if self.sheet.dtypes[key] == float64:
                 datatype = "NUMBER(16,2)"
-            elif self.sheet.dtypes[key] == np.int64:
+            elif self.sheet.dtypes[key] == int64:
                 datatype = "INTEGER"
             else: # Assume string
                 datatype = "VARCHAR(200)"
