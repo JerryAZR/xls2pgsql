@@ -14,7 +14,7 @@ A personal project that imports data entries in xls/xlsx/csv sheets to a Postgre
 * pypinyin
 * pyqt5
 
-# Build and Run
+## Build and Run
 
 To build the executable, run `python -m PyInstaller main.spec` or `.\build.bat`.
 
