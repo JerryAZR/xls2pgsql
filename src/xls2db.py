@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import (
     QApplication,
     QStyle
 )
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QIntValidator
 from PyQt5.QtCore import Qt, pyqtSignal
 import psycopg2
 import pandas as pd
@@ -58,6 +58,8 @@ class Xls2dbPage(QWidget):
         self.checkAllBox.stateChanged.connect(self.checkAll)
         self.addDataDone.connect(self.postAdd)
         self.updateProgress.connect(self.progressBar.setValue)
+        self.skipBox.setValidator(QIntValidator(self))
+        self.skipBox.currentTextChanged.connect(self.loadExcel)
 
     def checkAll(self, state):
         for conf in self.scrollArea.findChildren(ColConf):
@@ -89,16 +91,26 @@ class Xls2dbPage(QWidget):
         for i in reversed(range(self.colListLayout.count())): 
             self.colListLayout.itemAt(i).widget().deleteLater()
 
+        # Get number of lines to skip
+        skip = int(self.skipBox.currentText())
+
         # Add columns
-        if path.endswith("xls"):
-            self.sheet = pd.read_excel(path, engine="xlrd")
-        elif path.endswith("xlsx"):
-            self.sheet = pd.read_excel(path, engine="openpyxl")
-        elif path.endswith("csv"):
-            self.sheet = pd.read_csv(path, engine="python")
-        else:
-            self.sheet = None
+        try:
+            if path.endswith("xls"):
+                self.sheet = pd.read_excel(path, engine="xlrd", skiprows=skip)
+            elif path.endswith("xlsx"):
+                self.sheet = pd.read_excel(path, engine="openpyxl", skiprows=skip)
+            elif path.endswith("csv"):
+                self.sheet = pd.read_csv(path, engine="python", skiprows=skip)
+            else:
+                self.sheet = None
+                return
+        except TypeError:
+            # Incorrect line number. No need to warn
             return
+        except:
+            # Unknown error
+            QMessageBox.warning(self, "Unknown Error", traceback.format_exc())
         defaults = []
         colIdx = 0
         for key in self.sheet.dtypes.keys():
@@ -110,6 +122,7 @@ class Xls2dbPage(QWidget):
             else: # Assume string
                 datatype = "VARCHAR(200)"
             # Get column name
+            key = str(key) # Column name must be string
             # Avoid duplicate default names
             acronym = sanitize(get_acronym(key))
             if acronym in defaults: # Add a number as suffix
