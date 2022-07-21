@@ -68,7 +68,7 @@ class Xls2dbPage(QWidget):
             self,
             "Open File",
             None,
-            "MS Excel (*.xls *.xlsx);;All Files (*)")
+            "MS Excel (*.xls *.xlsx *.csv);;All Files (*)")
         if fname is None:
             return
         self.fnameEdit.setText(fname) # triggers the loadExcel function
@@ -95,7 +95,7 @@ class Xls2dbPage(QWidget):
         elif path.endswith("xlsx"):
             self.sheet = pd.read_excel(path, engine="openpyxl")
         elif path.endswith("csv"):
-            self.sheet = pd.read_csv(path)
+            self.sheet = pd.read_csv(path, engine="python")
         else:
             self.sheet = None
             return
