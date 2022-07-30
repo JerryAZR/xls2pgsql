@@ -2,7 +2,7 @@ import os
 from PyQt5 import uic
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QPalette, QColor
-from coreutils import sanitize, stripHTML
+from coreutils import sanitize, sanitize_ext, stripHTML
 
 class ColConf(QWidget):
     ID = 0
@@ -49,7 +49,7 @@ class ColConf(QWidget):
         self.checkBox.setCheckState(state)
 
     def getColName(self):
-        return (sanitize(self.name.text()), sanitize(self.dataType.currentText()))
+        return (sanitize(self.name.text()), sanitize_ext(self.dataType.currentText()))
 
     def getColDescription(self):
         return stripHTML(self.description.text())
