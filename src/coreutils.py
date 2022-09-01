@@ -20,7 +20,11 @@ def sanitize_ext(raw) -> str:
     step2 = match[2] + match[1]
     return step2
 
-
 def stripHTML(html: str) -> str:
     return re.sub(r"<.*?>", "", html)
 
+def printable(raw: str) -> str:
+    return ''.join(c for c in raw if c.isprintable())
+
+def printableList(rawList: list) -> list:
+    return list(map(printable, rawList))

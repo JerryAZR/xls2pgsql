@@ -220,6 +220,8 @@ class Xls2dbPage(QWidget):
                 buffer.append(self.cur.mogrify(f"({dataTemplate})", row.tolist()).decode("utf-8"))
                 # check if buffer is full
                 if len(buffer) >= bufferSize:
+                    # Remove non-printable characters
+                    buffer = printableList(buffer)
                     # Execute:
                     #   INSERT INTO table_name (col1, col2, ...)
                     #   VALUES (valA1, valA2, ...), (valB1, valB2, ...), ...
@@ -232,6 +234,8 @@ class Xls2dbPage(QWidget):
                     self.updateProgress.emit(total)
             # Add remaining records
             if buffer:
+                # Remove non-printable characters
+                buffer = printableList(buffer)
                 self.cur.execute(f"INSERT INTO {table} ({','.join(colNames)}) VALUES {','.join(buffer)};")
                 total += len(buffer)
                 self.updateProgress.emit(total)
