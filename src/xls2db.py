@@ -15,7 +15,7 @@ from pandas import read_excel, read_csv
 from numpy import float64, int64
 import traceback
 from threading import Thread
-from coreutils import get_acronym, sanitize
+from coreutils import get_acronym, nan2num, sanitize, printableList
 from colconf import ColConf
 from dbconnect import DBConnect
 from tablearea import TableArea
@@ -217,7 +217,8 @@ class Xls2dbPage(QWidget):
                 # buffer = [(valA1, valA2, ...), (valB1, valB2, ...), ...]
                 # It is possible to do this by hand, but mogrify handles
                 # missing cell values better
-                buffer.append(self.cur.mogrify(f"({dataTemplate})", row.tolist()).decode("utf-8"))
+                row2 = nan2num(row.tolist(), nan=0)
+                buffer.append(self.cur.mogrify(f"({dataTemplate})", row2).decode("utf-8"))
                 # check if buffer is full
                 if len(buffer) >= bufferSize:
                     # Remove non-printable characters

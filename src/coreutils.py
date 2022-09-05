@@ -1,5 +1,6 @@
 from pypinyin import Style, lazy_pinyin
 import re
+import numpy
 
 def get_acronym(raw) -> str:
     return ''.join(lazy_pinyin(str(raw), style=Style.FIRST_LETTER))
@@ -28,3 +29,13 @@ def printable(raw: str) -> str:
 
 def printableList(rawList: list) -> list:
     return list(map(printable, rawList))
+
+def nan2num(rawList: list, nan=0) -> list:
+    newList = rawList.copy()
+    for i in range(len(rawList)):
+        x = rawList[i]
+        try: # Check numbers for np.nan
+            newList[i] = nan if numpy.isnan(x) else x
+        except TypeError: # Keep strings (and possibily other types) unchanged
+            newList[i] = x
+    return newList
